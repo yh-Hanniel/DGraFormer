@@ -22,4 +22,4 @@ The used datasets are available at:
 ## Usage
 Use the following command to run the main script with configuration options. For example:
 
-* `python run.py
+* python run.py
