@@ -154,8 +154,8 @@ class graph_constructor(nn.Module):
         self.nnodes = nnodes
 
         # 读取 CSV 文件，假设文件名为 'cosine_similarity_matrix.csv'
-        # file_path = '/mnt/mydisk7/yh/DGraformer1.20/layers/ETTh1_top3_cosine_similarity_matrix_after_fourier.csv'
-        file_path = '/data/data_1/yh/DGraformer1.20/layers/ETTh1_top3_cosine_similarity_matrix_after_fourier.csv'
+        # file_path = '../layers/ETTh1_top3_cosine_similarity_matrix_after_fourier.csv'
+        file_path = '../layers/ETTh1_top3_cosine_similarity_matrix_after_fourier.csv'
 
 
         # 读取 CSV 文件，指定 'OT' 列作为索引
