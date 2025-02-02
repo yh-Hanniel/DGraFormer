@@ -39,7 +39,6 @@ class DGraFormer_backbone(nn.Module):
         # Patching
         self.patch_len = patch_len
         self.stride = stride
-        self.padding_patch = padding_patch
         patch_num = int(context_window / stride)
         print(f"patch_num: {patch_num}")
         print(f"patch_len: {patch_len}")
