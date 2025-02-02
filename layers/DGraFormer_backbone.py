@@ -18,8 +18,9 @@ from layers.RevIN import RevIN
 # Cell
 class DGraFormer_backbone(nn.Module):
     def __init__(self, c_in: int, context_window: int, target_window: int, patch_len: int, stride: int,
-                 device: str = 'cpu', max_seq_len: Optional[int] = 1024,
-                 n_layers: int = 3, d_model=128, n_heads=16, d_k: Optional[int] = None, d_v: Optional[int] = None,
+                 device: str = 'cpu', max_seq_len: Optional[int] = 1024, d_graph=30, d_gcn=1, mask=0.5,
+                 mp_layers: int = 2, n_layers: int = 3, d_model=128, n_heads=16, d_k: Optional[int] = None,
+                 d_v: Optional[int] = None,
                  d_ff: int = 256, norm: str = 'BatchNorm', attn_dropout: float = 0., dropout: float = 0.,
                  act: str = "gelu", key_padding_mask: bool = 'auto',
                  padding_var: Optional[int] = None, attn_mask: Optional[Tensor] = None, res_attention: bool = True,
@@ -40,10 +41,6 @@ class DGraFormer_backbone(nn.Module):
         self.stride = stride
         self.padding_patch = padding_patch
         patch_num = int(context_window / stride)
-        # patch_num = int((context_window - patch_len) / stride + 1)
-        # if padding_patch == 'end':  # can be modified to general case
-        #     self.padding_patch_layer = nn.ReplicationPad1d((0, stride))
-        #     patch_num += 1
         print(f"patch_num: {patch_num}")
         print(f"patch_len: {patch_len}")
         # Backbone
@@ -58,24 +55,18 @@ class DGraFormer_backbone(nn.Module):
         # Head
         self.head_nf = d_model * patch_num
         self.n_vars = c_in
-        self.pretrain_head = pretrain_head
-        self.head_type = head_type
-        self.individual = individual
-
-        if self.pretrain_head:
-            self.head = self.create_pretrain_head(self.head_nf, c_in,
-                                                  fc_dropout)  # custom head passed as a partial func with all its kwargs
-        elif head_type == 'flatten':
-            self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, target_window,
-                                     head_dropout=head_dropout)
+        self.d_gcn = d_gcn
+        self.head = Flatten_Head(self.n_vars, self.head_nf, target_window, head_dropout=head_dropout)
 
         self.device = device
-        self.num_nodes = 7
-        self.dims = 30
+        self.d_graph = d_graph
+        self.mask = mask
+        self.mp_layers = mp_layers
 
-        self.gc = graph_constructor(self.num_nodes, self.dims, self.device)
-        self.gcn1 = DGCN()
-        # self.gcn2 = DGCN()
+        self.gc = graph_constructor(self.n_vars, self.d_graph, self.device, mask=self.mask)
+        self.gcn1 = DGCN(d_gcn=self.d_gcn, mp_layers=self.mp_layers)
+        self.gcn2 = DGCN(d_gcn=self.d_gcn, mp_layers=self.mp_layers)
+
 
     def forward(self, z, time_index, current_epoch):  # z: [bs x nvars x seq_len] # time_index: [bs x timeinfo]
         # norm
@@ -86,16 +77,11 @@ class DGraFormer_backbone(nn.Module):
 
         indices = time_index // 24
         indices = indices % 7
-        #
+
         adj = self.gc(indices, current_epoch)
-        # tadj = adj.permute(0, 1, 3, 2)
-        #
-        # # z = self.gcn1(z, adj) + self.gcn2(z, tadj)
         z = self.gcn1(z, adj)
 
         # do patching
-        # if self.padding_patch == 'end':
-        #     z = self.padding_patch_layer(z)
         z = z.unfold(dimension=-1, size=self.patch_len, step=self.stride)  # z: [bs x nvars x patch_num x patch_len]
         z = z.permute(0, 1, 3, 2)  # z: [bs x nvars x patch_len x patch_num]
 
@@ -117,94 +103,83 @@ class DGraFormer_backbone(nn.Module):
 
 
 class DGCN(nn.Module):
-    def __init__(self, c_in=1, c_out=1, gdep=2, dropout=0.3, propalpha=0.05):
+    def __init__(self, d_gcn, mp_layers, c_in=1, c_out=1, propbeta=0.05):
         super(DGCN, self).__init__()
         self.nconv = nconv()
-        # self.startmlp = nn.Linear(c_in, 16)
-        # self.mlp = nn.Linear((gdep + 1) * 16, c_out)
-        self.mlp = nn.Linear((gdep + 1) * c_in, c_out)
+        self.d_gcn = d_gcn
+        if d_gcn != 1:
+            self.startmlp = nn.Linear(c_in, d_gcn)
+            self.mlp = nn.Linear((mp_layers + 1) * d_gcn, c_out)
+        else:
+            self.mlp = nn.Linear((mp_layers + 1) * c_in, c_out)
 
-        self.gdep = gdep
-        self.dropout = dropout
-        self.alpha = propalpha
+        self.mp_layers = mp_layers
+        self.propbeta = propbeta
 
     def forward(self, x, adj):
         a = adj.permute(0, 2, 3, 1)
         x = x.unsqueeze(-1)
-        # h = self.startmlp(x)
-        h = x
+        if self.d_gcn != 1:
+            h = self.startmlp(x)
+        else:
+            h = x
         out = [h]
-        for i in range(self.gdep):
-            h = self.alpha * x + (1 - self.alpha) * self.nconv(h, a)
+        for i in range(self.mp_layers):
+            h = self.propbeta * x + (1 - self.propbeta) * self.nconv(h, a)
             out.append(h)
 
-        # h = torch.stack(out, dim=3)
         h = torch.cat(out, dim=-1)
 
         h = self.mlp(h)
-        # h = F.relu(h)
-        # h = F.dropout(h)
         h = h.squeeze(-1)  # 移除最后一个维度
         return h
 
 
 class graph_constructor(nn.Module):
-    def __init__(self, nnodes, dim, device, tanhalpha=1, num_adj_matrices=7):
+    def __init__(self, n_vars, d_graph, device, alpha=0.9, num_adj_matrices=7, mask=0.5):
         super(graph_constructor, self).__init__()
-        self.nnodes = nnodes
+        self.n_vars = n_vars
 
         # 读取 CSV 文件，假设文件名为 'cosine_similarity_matrix.csv'
-        file_path = './layers/ETTh1_top3_cosine_similarity_matrix_after_fourier.csv'
-
-
-        # 读取 CSV 文件，指定 'OT' 列作为索引
+        file_path = './layers/ETTh1_top3_cosine_similarity_matrix_after_fourier01.csv'
         data = pd.read_csv(file_path, index_col=0)
 
         # 将 DataFrame 转换为 NumPy 数组
         similarity_matrix = data.to_numpy()
         self.init_adj_matrix = torch.tensor(similarity_matrix, device=device, dtype=torch.float32)
 
-        # self.embeddings = nn.Parameter(init_adj_matrix)
-
         # 预生成节点嵌入矩阵
         self.emb_list1 = nn.ParameterList(
-            [nn.Parameter(torch.randn(nnodes, dim, device=device)) for _ in range(num_adj_matrices)])
+            [nn.Parameter(torch.randn(n_vars, d_graph, device=device)) for _ in range(num_adj_matrices)])
         self.emb_list2 = nn.ParameterList(
-            [nn.Parameter(torch.randn(nnodes, dim, device=device)) for _ in range(num_adj_matrices)])
+            [nn.Parameter(torch.randn(n_vars, d_graph, device=device)) for _ in range(num_adj_matrices)])
 
         # 用于生成不同的邻接矩阵
-        self.lin1 = nn.ModuleList([nn.Linear(dim, dim) for _ in range(num_adj_matrices)])
-        self.lin2 = nn.ModuleList([nn.Linear(dim, dim) for _ in range(num_adj_matrices)])
+        self.lin1 = nn.ModuleList([nn.Linear(d_graph, d_graph) for _ in range(num_adj_matrices)])
+        self.lin2 = nn.ModuleList([nn.Linear(d_graph, d_graph) for _ in range(num_adj_matrices)])
         self.lin1.to(device)
         self.lin2.to(device)
 
         self.device = device
-        self.dim = dim
-        self.alpha = tanhalpha
+        self.alpha = alpha
         self.num_adj_matrices = num_adj_matrices
+        self.mask = mask
 
     def forward(self, time_indices, current_epoch):
         adjs = []
+        num_elements = self.n_vars * self.n_vars
         for i in range(self.num_adj_matrices):
-            nodevec1 = torch.tanh(self.alpha * self.lin1[i](self.emb_list1[i]))
-            nodevec2 = torch.tanh(self.alpha * self.lin2[i](self.emb_list2[i]))
+            nodevec1 = torch.tanh(self.lin1[i](self.emb_list1[i]))
+            nodevec2 = torch.tanh(self.lin2[i](self.emb_list2[i]))
 
-            part = min(current_epoch / 10, 0.9)  # 限制 part 在 [0, 1]
-            a = (1 - part) * self.init_adj_matrix + part * torch.mm(nodevec1, nodevec2.transpose(1, 0))
-
-            # 计算邻接矩阵
-            # a = torch.mm(nodevec1, nodevec2.transpose(1, 0))
-            # a = self.embeddings
-            adj = F.relu(torch.tanh(self.alpha * a))
+            prop = min(current_epoch / 5, self.alpha)  # 限制 part 在 [0, 1]
+            a = (1 - prop) * self.init_adj_matrix + prop * torch.mm(nodevec1, nodevec2.transpose(1, 0))
+            adj = F.relu(torch.tanh(a))
 
             # 将对角线设置为0
             adj = adj - torch.diag(torch.diag(adj))
 
-            # 计算邻接矩阵的元素数目
-            num_elements = adj.size(0) * adj.size(1)
-
-            # 获取邻接矩阵前 1/10 的最大值的索引
-            values, indices = torch.topk(adj.reshape(-1), int(num_elements * 0.5), largest=True)
+            values, indices = torch.topk(adj.reshape(-1), int(num_elements * self.mask), largest=True)
 
             # 创建一个零的mask矩阵
             mask = torch.zeros_like(adj.reshape(-1), device=adj.device)
@@ -215,22 +190,6 @@ class graph_constructor(nn.Module):
 
             # 将对角线重新设置为 1
             adj = adj + torch.eye(adj.size(0)).to(adj.device)
-            #
-            # # 计算每个节点的出度和入度
-            # d_out = adj.sum(1)  # 出度 D_out = adj.sum(1)
-            # d_in = adj.sum(0)  # 入度 D_in = adj.sum(0)
-            #
-            # # 计算 D_out^{-1/2} 和 D_in^{-1/2}
-            # d_out_inv_sqrt = d_out.pow(-0.5)
-            # d_in_inv_sqrt = d_in.pow(-0.5)
-            #
-            # # 处理度为零的节点，避免计算 inf
-            # d_out_inv_sqrt[torch.isinf(d_out_inv_sqrt)] = 0
-            # d_in_inv_sqrt[torch.isinf(d_in_inv_sqrt)] = 0
-            #
-            # # 左侧和右侧归一化
-            # adj = adj * d_out_inv_sqrt.view(-1, 1)  # 乘以 D_out^{-1/2} 的左边
-            # adj = adj * d_in_inv_sqrt.view(1, -1)  # 乘以 D_in^{-1/2} 的右边
 
             d = adj.sum(1)
             adj = adj / d.view(-1, 1)
@@ -247,45 +206,24 @@ class nconv(nn.Module):
         super(nconv, self).__init__()
 
     def forward(self, x, A):
-        # x = torch.einsum('nvlc,nwv->nwlc', (x, A))
-        # x = torch.einsum('bns,bnms->bms', (x, A))
         x = torch.einsum('bnsc,bnms->bmsc', (x, A))
         return x.contiguous()
 
 
 class Flatten_Head(nn.Module):
-    def __init__(self, individual, n_vars, nf, target_window, head_dropout=0):
+    def __init__(self, n_vars, nf, target_window, head_dropout=0):
         super().__init__()
-
-        self.individual = individual
         self.n_vars = n_vars
-
-        if self.individual:
-            self.linears = nn.ModuleList()
-            self.dropouts = nn.ModuleList()
-            self.flattens = nn.ModuleList()
-            for i in range(self.n_vars):
-                self.flattens.append(nn.Flatten(start_dim=-2))
-                self.linears.append(nn.Linear(nf, target_window))
-                self.dropouts.append(nn.Dropout(head_dropout))
-        else:
-            self.flatten = nn.Flatten(start_dim=-2)
-            self.linear = nn.Linear(nf, target_window)
-            self.dropout = nn.Dropout(head_dropout)
+        self.flatten = nn.Flatten(start_dim=-2)
+        self.linear = nn.Linear(nf, target_window)
+        self.dropout = nn.Dropout(head_dropout)
 
     def forward(self, x):  # x: [bs x nvars x d_model x patch_num]
-        if self.individual:
-            x_out = []
-            for i in range(self.n_vars):
-                z = self.flattens[i](x[:, i, :, :])  # z: [bs x d_model * patch_num]
-                z = self.linears[i](z)  # z: [bs x target_window]
-                z = self.dropouts[i](z)
-                x_out.append(z)
-            x = torch.stack(x_out, dim=1)  # x: [bs x nvars x target_window]
-        else:
-            x = self.flatten(x)
-            x = self.linear(x)
-            x = self.dropout(x)
+
+        x = self.flatten(x)
+        x = self.linear(x)
+        x = self.dropout(x)
+
         return x
 
 
