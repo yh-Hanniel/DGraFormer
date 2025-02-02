@@ -10,8 +10,9 @@ transformer (MTT). The former aims to capture dynamic correlations across differ
 selects key weights to guide the aggregation of relevant feature representations. The latter can effectively extract
 temporal patterns from patch data at varying scales.
 
-
-<iframe src="https://docs.google.com/viewer?url=https://github.com/yh-Hanniel/DGraFormer/blob/main/figure/framework.pdf&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>
+<p align="center">
+<img src="./figure/framework.png" height = "360" alt="" align=center />
+</p>
 
 ## Dependencies
 
