@@ -1,11 +1,12 @@
 import os
 import warnings
-import torch
+
+import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset
+
 from utils.timefeatures import time_features
-import numpy as np
 
 warnings.filterwarnings('ignore')
 
@@ -13,7 +14,7 @@ warnings.filterwarnings('ignore')
 class Dataset_ETT_hour(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h'):
+                 target='OT', scale=True, timeenc=0, freq='h', numpoint_win=24, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -34,12 +35,11 @@ class Dataset_ETT_hour(Dataset):
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
-
+        self.numpoint_win = numpoint_win
+        self.w_bias = w_bias
         self.root_path = root_path
         self.data_path = data_path
         self.__read_data__()
-
-
 
     def __read_data__(self):
         self.scaler = StandardScaler()
@@ -83,8 +83,7 @@ class Dataset_ETT_hour(Dataset):
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
         self.time_index = ind[border1:border2]
-
-
+        self.time_index = (self.time_index + self.w_bias) // self.numpoint_win
 
     def __getitem__(self, index):
         s_begin = index
@@ -110,7 +109,7 @@ class Dataset_ETT_hour(Dataset):
 class Dataset_ETT_minute(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='S', data_path='ETTm1.csv',
-                 target='OT', scale=True, timeenc=0, freq='t'):
+                 target='OT', scale=True, timeenc=0, freq='t', numpoint_win=96, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -131,7 +130,8 @@ class Dataset_ETT_minute(Dataset):
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
-
+        self.numpoint_win = numpoint_win
+        self.w_bias = w_bias
         self.root_path = root_path
         self.data_path = data_path
         self.__read_data__()
@@ -180,6 +180,7 @@ class Dataset_ETT_minute(Dataset):
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
         self.time_index = ind[border1:border2]
+        self.time_index = (self.time_index + self.w_bias) // self.numpoint_win
 
     def __getitem__(self, index):
         s_begin = index
@@ -187,10 +188,6 @@ class Dataset_ETT_minute(Dataset):
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len
 
-        # seq_x = torch.tensor(self.data_x[s_begin:s_end], dtype=torch.float32)
-        # seq_y = torch.tensor(self.data_y[r_begin:r_end], dtype=torch.float32)
-        # seq_x_mark = torch.tensor(self.data_stamp[s_begin:s_end], dtype=torch.float32)
-        # seq_y_mark = torch.tensor(self.data_stamp[r_begin:r_end], dtype=torch.float32)
         seq_x = self.data_x[s_begin:s_end]
         seq_y = self.data_y[r_begin:r_end]
         seq_x_mark = self.data_stamp[s_begin:s_end]
@@ -209,7 +206,7 @@ class Dataset_ETT_minute(Dataset):
 class Dataset_Custom(Dataset):
     def __init__(self, root_path, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h'):
+                 target='OT', scale=True, timeenc=0, freq='h', numpoint_win=24, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -230,7 +227,8 @@ class Dataset_Custom(Dataset):
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
-
+        self.numpoint_win = numpoint_win
+        self.w_bias = w_bias
         self.root_path = root_path
         self.data_path = data_path
         self.__read_data__()
@@ -290,6 +288,7 @@ class Dataset_Custom(Dataset):
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
         self.time_index = ind[border1:border2]
+        self.time_index = (self.time_index + self.w_bias) // self.numpoint_win
 
     def __getitem__(self, index):
         s_begin = index
@@ -315,7 +314,7 @@ class Dataset_Custom(Dataset):
 class Dataset_Pred(Dataset):
     def __init__(self, root_path, flag='pred', size=None,
                  features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, inverse=False, timeenc=0, freq='15min', cols=None):
+                 target='OT', scale=True, inverse=False, timeenc=0, freq='15min', cols=None, numpoint_win=24, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -336,6 +335,8 @@ class Dataset_Pred(Dataset):
         self.timeenc = timeenc
         self.freq = freq
         self.cols = cols
+        self.numpoint_win = numpoint_win
+        self.w_bias = w_bias
         self.root_path = root_path
         self.data_path = data_path
         self.__read_data__()
@@ -344,6 +345,7 @@ class Dataset_Pred(Dataset):
         self.scaler = StandardScaler()
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
+        process_data(file_path)
         '''
         df_raw.columns: ['date', ...(other features), target feature]
         '''
@@ -398,6 +400,7 @@ class Dataset_Pred(Dataset):
             self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
         self.time_index = ind[border1:border2]
+        self.time_index = (self.time_index + self.w_bias) // self.numpoint_win
 
     def __getitem__(self, index):
         s_begin = index

@@ -39,7 +39,9 @@ def data_provider(args, flag):
         features=args.features,
         target=args.target,
         timeenc=timeenc,
-        freq=freq
+        freq=freq,
+        numpoint_win=args.numpoint_win,
+        w_bias=args.w_bias
     )
     print(flag, len(data_set))
     data_loader = DataLoader(
