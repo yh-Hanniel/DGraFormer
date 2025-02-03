@@ -18,7 +18,7 @@ from layers.RevIN import RevIN
 # Cell
 class DGraFormer_backbone(nn.Module):
     def __init__(self, c_in: int, context_window: int, target_window: int, patch_len: int, stride: int,
-                 device: str = 'cpu', max_seq_len: Optional[int] = 1024, d_graph=30, d_gcn=1, mask=0.5,
+                 device: str = 'cpu', max_seq_len: Optional[int] = 1024, d_graph=30, d_gcn=1, w_ratio=0.5,
                  mp_layers: int = 2, n_layers: int = 3, d_model=128, n_heads=16, d_k: Optional[int] = None,
                  d_v: Optional[int] = None,
                  d_ff: int = 256, norm: str = 'BatchNorm', attn_dropout: float = 0., dropout: float = 0.,
@@ -58,10 +58,10 @@ class DGraFormer_backbone(nn.Module):
 
         self.device = device
         self.d_graph = d_graph
-        self.mask = mask
+        self.w_ratio = w_ratio
         self.mp_layers = mp_layers
 
-        self.gc = Graph_constructor(self.n_vars, self.d_graph, self.device, mask=self.mask)
+        self.gc = Graph_constructor(self.n_vars, self.d_graph, self.device, w_ratio=self.w_ratio)
         self.dcgl1 = DCGL(d_gcn=self.d_gcn, mp_layers=self.mp_layers)
         self.dcgl2 = DCGL(d_gcn=self.d_gcn, mp_layers=self.mp_layers)
 
@@ -72,10 +72,7 @@ class DGraFormer_backbone(nn.Module):
             z = self.revin_layer(z, 'norm')
             z = z.permute(0, 2, 1)
 
-        indices = time_index // 24
-        indices = indices % 7
-
-        adj = self.gc(indices, current_epoch)
+        adj = self.gc(time_index, current_epoch)
         z = self.dcgl1(z, adj)
 
         # do patching
@@ -137,7 +134,7 @@ class nconv(nn.Module):
 
 
 class Graph_constructor(nn.Module):
-    def __init__(self, n_vars, d_graph, device, alpha=0.9, num_adj_matrices=7, mask=0.5):
+    def __init__(self, n_vars, d_graph, device, alpha=0.9, num_adj_matrices=7, w_ratio=0.5):
         super(Graph_constructor, self).__init__()
         self.n_vars = n_vars
 
@@ -160,7 +157,7 @@ class Graph_constructor(nn.Module):
         self.device = device
         self.alpha = alpha
         self.num_adj_matrices = num_adj_matrices
-        self.mask = mask
+        self.w_ratio = w_ratio
 
     def forward(self, time_indices, current_epoch):
         adjs = []
@@ -175,7 +172,7 @@ class Graph_constructor(nn.Module):
 
             adj = adj - torch.diag(torch.diag(adj))
 
-            values, indices = torch.topk(adj.reshape(-1), int(num_elements * self.mask), largest=True)
+            values, indices = torch.topk(adj.reshape(-1), int(num_elements * self.w_ratio), largest=True)
 
             mask = torch.zeros_like(adj.reshape(-1), device=adj.device)
             mask[indices] = 1  # 选择 topk 的元素，其他位置为 0
@@ -189,6 +186,7 @@ class Graph_constructor(nn.Module):
 
             adjs.append(adj)
 
+        time_indices = time_indices % self.num_adj_matrices
         oadj = torch.stack(adjs)
         dadj = oadj[time_indices]
         return dadj
