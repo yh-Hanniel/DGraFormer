@@ -42,8 +42,15 @@ if __name__ == '__main__':
     parser.add_argument('--label_len', type=int, default=48, help='start token length')
     parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
 
-    # DLinear
-    # parser.add_argument('--individual', action='store_true', default=False, help='DLinear: a linear layer for each variate(channel) individually')
+    parser.add_argument('--numpoint_win', type=int, default=24,
+                        help='the number of points per window (e.g., hourly data for one day)')
+    parser.add_argument('--w_bias', type=int, default=0,
+                        help='time points bias for the first window')
+    parser.add_argument('--d_graph', type=int, default=30, help='dimensionality of the graph')
+    parser.add_argument('--d_gcn', type=int, default=1, help='dimensionality of the graph message passing')
+    parser.add_argument('--w_ratio', type=float, default=0.5, help='the weight focusing ratio')
+    parser.add_argument('--mp_layers', type=int, default=2,
+                        help='the number of graph message passing layers ')
 
     # PatchTST
     parser.add_argument('--fc_dropout', type=float, default=0.05, help='fully connected dropout')
@@ -87,7 +94,7 @@ if __name__ == '__main__':
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--train_epochs', type=int, default=200, help='train epochs')
     parser.add_argument('--batch_size', type=int, default=128, help='batch size of train input data')
-    parser.add_argument('--patience', type=int, default=50, help='early stopping patience')
+    parser.add_argument('--patience', type=int, default=20, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
     parser.add_argument('--des', type=str, default='test', help='exp description')
     parser.add_argument('--loss', type=str, default='mse', help='loss function')
