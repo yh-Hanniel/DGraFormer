@@ -27,7 +27,6 @@ if __name__ == '__main__':
 
     # data loader
     parser.add_argument('--data', type=str, default='ETTh1', help='dataset type')
-    # parser.add_argument('--root_path', type=str, default='/mnt/mydisk7/yh/PatchTST_supervised/data_provider/data/ETT/', help='root path of the data file')
     parser.add_argument('--root_path', type=str, default='data_provider/data/ETT', help='root path of the data file')
     parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
     parser.add_argument('--features', type=str, default='M',
