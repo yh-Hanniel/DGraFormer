@@ -23,9 +23,9 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default='DGraFormer', help='model name')
 
     # data loader
-    parser.add_argument('--data', type=str, default='custom', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='data_provider/data/traffic', help='root path of the data file')
-    parser.add_argument('--data_path', type=str, default='traffic.csv', help='data file')
+    parser.add_argument('--data', type=str, default='ETTh1', help='dataset type')
+    parser.add_argument('--root_path', type=str, default='data_provider/data/ETT', help='root path of the data file')
+    parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
@@ -38,10 +38,10 @@ if __name__ == '__main__':
     # DCGL
     parser.add_argument('--numpoint_win', type=int, default=24,
                         help='the number of points per window (e.g., hourly data for one day)')
-    parser.add_argument('--w_bias', type=int, default=2, help='time points bias for the first window')
+    parser.add_argument('--w_bias', type=int, default=0, help='time points bias for the first window')
     parser.add_argument('--d_graph', type=int, default=30, help='dimensionality of the graph')
-    parser.add_argument('--d_gcn', type=int, default=128, help='dimensionality of the graph message passing')
-    parser.add_argument('--w_ratio', type=float, default=0.005, help='the weight focusing ratio')
+    parser.add_argument('--d_gcn', type=int, default=1, help='dimensionality of the graph message passing')
+    parser.add_argument('--w_ratio', type=float, default=0.5, help='the weight focusing ratio')
     parser.add_argument('--mp_layers', type=int, default=2, help='the number of graph message passing layers ')
 
     parser.add_argument('--predictor_dropout', type=float, default=0.0, help='predictor_dropout')
@@ -52,11 +52,11 @@ if __name__ == '__main__':
     parser.add_argument('--subtract_last', type=int, default=0, help='0: subtract mean; 1: subtract last')
 
     # MTT
-    parser.add_argument('--n_vars', type=int, default=862, help='encoder input size')
-    parser.add_argument('--d_model', type=int, default=512, help='dimension of model')
-    parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
+    parser.add_argument('--n_vars', type=int, default=7, help='encoder input size')
+    parser.add_argument('--d_model', type=int, default=16, help='dimension of model')
+    parser.add_argument('--n_heads', type=int, default=4, help='num of heads')
     parser.add_argument('--e_layers', type=int, default=1, help='num of encoder layers')
-    parser.add_argument('--d_ff', type=int, default=2048, help='dimension of fcn')
+    parser.add_argument('--d_ff', type=int, default=128, help='dimension of fcn')
     parser.add_argument('--dropout', type=float, default=0.05, help='dropout')
     parser.add_argument('--embed', type=str, default='timeF',
                         help='time features encoding, options:[timeF, fixed, learned]')
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=4, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
     parser.add_argument('--train_epochs', type=int, default=200, help='train epochs')
-    parser.add_argument('--batch_size', type=int, default=12, help='batch size of train input data')
+    parser.add_argument('--batch_size', type=int, default=128, help='batch size of train input data')
     parser.add_argument('--patience', type=int, default=20, help='early stopping patience')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='optimizer learning rate')
     parser.add_argument('--des', type=str, default='test', help='exp description')
