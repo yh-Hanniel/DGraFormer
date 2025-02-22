@@ -3,13 +3,9 @@ from __future__ import division
 __all__ = ['Transpose', 'get_activation_fn', 'moving_avg', 'series_decomp', 'PositionalEncoding', 'SinCosPosEncoding',
            'Coord2dPosEncoding', 'Coord1dPosEncoding', 'positional_encoding']
 
-import time
 import math
 import torch
-import torch.nn.functional as F
 from torch import nn
-from torch_geometric.data import Data
-import numpy as np
 
 
 class Transpose(nn.Module):
@@ -148,4 +144,3 @@ def positional_encoding(pe, learn_pe, q_len, d_model):
         raise ValueError(f"{pe} is not a valid pe (positional encoder. Available types: 'gauss'=='normal', \
         'zeros', 'zero', uniform', 'lin1d', 'exp1d', 'lin2d', 'exp2d', 'sincos', None.)")
     return nn.Parameter(W_pos, requires_grad=learn_pe)
-
