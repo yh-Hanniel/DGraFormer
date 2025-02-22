@@ -1,6 +1,6 @@
 # DGraFormer
 
-This is the code for the paper:
+This is the code for paper:
 > DGraFormer: Dynamic Graph Learning Guided Multi-Scale Transformer for Multivariate Time Series Forecasting
 
 ## Introduction
@@ -11,13 +11,14 @@ selects key weights to guide the aggregation of relevant feature representations
 temporal patterns from patch data at varying scales.
 
 <p align="center">
-<img src="./figure/framework.png" height = "360" alt="" align=center />
+<img src="./figure/framework.png" alt="" align=center />
 </p>
 
 ## Dependencies
 
 Recent versions of the following packages for Python 3 are required:
 
+* einops==0.8.0
 * numpy==1.24.3
 * matplotlib==3.7.5
 * pandas==2.0.3
