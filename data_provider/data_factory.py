@@ -36,8 +36,6 @@ def data_provider(args, flag):
         data_path=args.data_path,
         flag=flag,
         size=[args.seq_len, args.label_len, args.pred_len],
-        features=args.features,
-        target=args.target,
         timeenc=timeenc,
         freq=freq,
         numpoint_win=args.numpoint_win,

@@ -12,9 +12,8 @@ warnings.filterwarnings('ignore')
 
 
 class Dataset_ETT_hour(Dataset):
-    def __init__(self, root_path, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h', numpoint_win=24, w_bias=0):
+    def __init__(self, root_path, flag='train', size=None, data_path='ETTh1.csv', scale=True, timeenc=0, freq='h',
+                 numpoint_win=24, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -30,8 +29,6 @@ class Dataset_ETT_hour(Dataset):
         type_map = {'train': 0, 'val': 1, 'test': 2}
         self.set_type = type_map[flag]
 
-        self.features = features
-        self.target = target
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
@@ -51,11 +48,8 @@ class Dataset_ETT_hour(Dataset):
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]
-            df_data = df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
+        cols_data = df_raw.columns[1:]
+        df_data = df_raw[cols_data]
 
         self.size = len(df_data)
         ind = np.arange(0, self.size)
@@ -93,11 +87,9 @@ class Dataset_ETT_hour(Dataset):
 
         seq_x = self.data_x[s_begin:s_end]
         seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
         seq_x_index = self.time_index[s_begin:s_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark, seq_x_index
+        return seq_x, seq_y, seq_x_index
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -107,9 +99,8 @@ class Dataset_ETT_hour(Dataset):
 
 
 class Dataset_ETT_minute(Dataset):
-    def __init__(self, root_path, flag='train', size=None,
-                 features='S', data_path='ETTm1.csv',
-                 target='OT', scale=True, timeenc=0, freq='t', numpoint_win=96, w_bias=0):
+    def __init__(self, root_path, flag='train', size=None, data_path='ETTm1.csv', scale=True, timeenc=0, freq='t',
+                 numpoint_win=96, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -125,8 +116,6 @@ class Dataset_ETT_minute(Dataset):
         type_map = {'train': 0, 'val': 1, 'test': 2}
         self.set_type = type_map[flag]
 
-        self.features = features
-        self.target = target
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
@@ -146,11 +135,8 @@ class Dataset_ETT_minute(Dataset):
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]
-            df_data = df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
+        cols_data = df_raw.columns[1:]
+        df_data = df_raw[cols_data]
 
         self.size = len(df_data)
         ind = np.arange(0, self.size)
@@ -190,11 +176,9 @@ class Dataset_ETT_minute(Dataset):
 
         seq_x = self.data_x[s_begin:s_end]
         seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
         seq_x_index = self.time_index[s_begin:s_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark, seq_x_index
+        return seq_x, seq_y, seq_x_index
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -204,9 +188,8 @@ class Dataset_ETT_minute(Dataset):
 
 
 class Dataset_Custom(Dataset):
-    def __init__(self, root_path, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h', numpoint_win=24, w_bias=0):
+    def __init__(self, root_path, flag='train', size=None, data_path='ETTh1.csv', scale=True, timeenc=0, freq='h',
+                 numpoint_win=24, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -222,8 +205,6 @@ class Dataset_Custom(Dataset):
         type_map = {'train': 0, 'val': 1, 'test': 2}
         self.set_type = type_map[flag]
 
-        self.features = features
-        self.target = target
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
@@ -242,9 +223,8 @@ class Dataset_Custom(Dataset):
         df_raw.columns: ['date', ...(other features), target feature]
         '''
         cols = list(df_raw.columns)
-        cols.remove(self.target)
         cols.remove('date')
-        df_raw = df_raw[['date'] + cols + [self.target]]
+        df_raw = df_raw[['date'] + cols]
         # print(cols)
         num_train = int(len(df_raw) * 0.7)
         num_test = int(len(df_raw) * 0.2)
@@ -254,11 +234,8 @@ class Dataset_Custom(Dataset):
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
 
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]
-            df_data = df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
+        cols_data = df_raw.columns[1:]
+        df_data = df_raw[cols_data]
 
         self.size = len(df_data)
         ind = np.arange(0, self.size)
@@ -298,11 +275,9 @@ class Dataset_Custom(Dataset):
 
         seq_x = self.data_x[s_begin:s_end]
         seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
         seq_x_index = self.time_index[s_begin:s_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark, seq_x_index
+        return seq_x, seq_y, seq_x_index
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -312,9 +287,8 @@ class Dataset_Custom(Dataset):
 
 
 class Dataset_Pred(Dataset):
-    def __init__(self, root_path, flag='pred', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, inverse=False, timeenc=0, freq='15min', cols=None, numpoint_win=24, w_bias=0):
+    def __init__(self, root_path, flag='pred', size=None, data_path='ETTh1.csv', scale=True, inverse=False, timeenc=0,
+                 freq='15min', cols=None, numpoint_win=24, w_bias=0):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -328,8 +302,6 @@ class Dataset_Pred(Dataset):
         # init
         assert flag in ['pred']
 
-        self.features = features
-        self.target = target
         self.scale = scale
         self.inverse = inverse
         self.timeenc = timeenc
@@ -345,26 +317,20 @@ class Dataset_Pred(Dataset):
         self.scaler = StandardScaler()
         df_raw = pd.read_csv(os.path.join(self.root_path,
                                           self.data_path))
-        process_data(file_path)
         '''
         df_raw.columns: ['date', ...(other features), target feature]
         '''
         if self.cols:
             cols = self.cols.copy()
-            cols.remove(self.target)
         else:
             cols = list(df_raw.columns)
-            cols.remove(self.target)
             cols.remove('date')
-        df_raw = df_raw[['date'] + cols + [self.target]]
+        df_raw = df_raw[['date'] + cols]
         border1 = len(df_raw) - self.seq_len
         border2 = len(df_raw)
 
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = df_raw.columns[1:]
-            df_data = df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = df_raw[[self.target]]
+        cols_data = df_raw.columns[1:]
+        df_data = df_raw[cols_data]
 
         self.size = len(df_data)
         ind = np.arange(0, self.size)
@@ -413,11 +379,9 @@ class Dataset_Pred(Dataset):
             seq_y = self.data_x[r_begin:r_begin + self.label_len]
         else:
             seq_y = self.data_y[r_begin:r_begin + self.label_len]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
         seq_x_index = self.time_index[s_begin:s_end]
 
-        return seq_x, seq_y, seq_x_mark, seq_y_mark, seq_x_index
+        return seq_x, seq_y, seq_x_index
 
     def __len__(self):
         return len(self.data_x) - self.seq_len + 1
